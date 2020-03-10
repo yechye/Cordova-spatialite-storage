@@ -134,12 +134,9 @@ static void sqlite_regexp(sqlite3_context* context, int argc, sqlite3_value** va
             /* Option to create from resource (pre-populated) if db does not exist: */
             if (![[NSFileManager defaultManager] fileExistsAtPath:absoluteFile]) {
 				NSLog(@"Error! Unable to find database!");
-                return;
-            }
-
-            if (sqlite3_open(name, &db) != SQLITE_OK) {
+                pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Unable to find database"];
+            } else if (sqlite3_open(name, &db) != SQLITE_OK) {
                 pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Unable to open DB"];
-                return;
             } else {
                 sqlite3_create_function(db, "regexp", 2, SQLITE_ANY, NULL, &sqlite_regexp, NULL, NULL);
 
@@ -153,18 +150,19 @@ static void sqlite_regexp(sqlite3_context* context, int argc, sqlite3_value** va
                 if(sqlite3_exec(db, (const char*)"SELECT count(*) FROM sqlite_master;", NULL, NULL, NULL) == SQLITE_OK) {
                     dbPointer = [NSValue valueWithPointer:db];
                     [openDBs setObject: dbPointer forKey: dbfilename];
+
+                    // initialize spatialite
+                    void* cache = spatialite_alloc_connection ();
+                    spatialite_init_ex (db, cache, 1);
+                    NSValue *cachePointer = [NSValue valueWithPointer:cache];
+                    [openConnections setObject: cachePointer forKey: dbPointer];
+
                     pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@"Database opened"];
                 } else {
                     pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Unable to open DB with key"];
                     // XXX TODO: close the db handle & [perhaps] remove from openDBs!!
                 }
             }
-            
-            // initialize spatialite
-            void* cache = spatialite_alloc_connection ();
-            spatialite_init_ex (db, cache, 1);
-            NSValue *cachePointer = [NSValue valueWithPointer:cache];
-            [openConnections setObject: cachePointer forKey: dbPointer];
         }
     }
 
