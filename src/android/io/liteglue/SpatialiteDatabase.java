@@ -7,6 +7,7 @@
 package io.liteglue;
 
 import android.annotation.SuppressLint;
+import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteException;
 import android.util.Log;
 import jsqlite.*;
@@ -28,7 +29,6 @@ class SpatialiteDatabase {
             Pattern.CASE_INSENSITIVE);
 
     @SuppressWarnings({"FieldCanBeLocal", "unused"})
-    private File dbFile;
     private Database db;
 
     /**
@@ -36,11 +36,20 @@ class SpatialiteDatabase {
      *
      * @param dbfile The database File specification
      */
-    void open(File dbfile) throws Exception {
-        dbFile = dbfile; // for possible bug workaround
+    void open(File dbfile) throws java.lang.Exception {
         if (!dbfile.exists()) {
-            throw new IllegalArgumentException("No such db file: "
-                    + dbfile);
+            Log.d(SpatialiteDatabase.class.getSimpleName(), "Creating sqlite db: " + dbfile.getAbsolutePath());
+
+            // Use Android's sqlite implementation (android.database.sqlite.SQLiteDatabase) to
+            // create an empty sqlite database so we can open it afterwards using
+            // android-spatialite's implementation (jsqlite.SpatialiteDatabase)
+            // android-spatialite: https://github.com/mrenouf/android-spatialite
+            SQLiteDatabase tempDb = SQLiteDatabase.openOrCreateDatabase(dbfile, null);
+            tempDb.close();
+
+            if (!dbfile.exists()) {
+                throw new java.lang.Exception("Creating sqlite db failed: " + dbfile.getAbsolutePath());
+            }
         }
         Log.d(SpatialiteDatabase.class.getSimpleName(), "Open sqlite db: " + dbfile.getAbsolutePath());
         db = new Database();

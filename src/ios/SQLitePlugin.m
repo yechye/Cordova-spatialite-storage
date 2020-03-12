@@ -122,39 +122,51 @@ static void sqlite_regexp(sqlite3_context* context, int argc, sqlite3_value** va
     CDVPluginResult* pluginResult = nil;
     NSMutableDictionary *options = [command.arguments objectAtIndex:0];
 
-    NSString *dbfilename = [options objectForKey:@"name"];
+    NSString *dbName = [options objectForKey:@"name"];
+    NSString *dbPath = [options objectForKey:@"path"];
+    if (dbPath == NULL) {
+        NSString *dbLocation = [options objectForKey:@"location"];
+        if (dbLocation == NULL) dbLocation = @"docs";
+        //NSLog(@"using db location: %@", dbLocation);
 
-    NSString *dblocation = [options objectForKey:@"dblocation"];
-    if (dblocation == NULL) dblocation = @"docs";
-    //NSLog(@"using db location: %@", dblocation);
-
-    NSString *dbname = [self getDBPath:dbfilename at:dblocation];
-
-    if (dbname == NULL) {
-        NSLog(@"No db name specified for open");
-        pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@"You must specify database name"];
+        dbPath = [self getDBPath:dbName at:dbLocation];
+        NSLog(@"Reusing existing database connection for db name %@", dbName);
+    } else if (dbName == NULL) {
+        dbName = dbPath;
     }
-    else {
-        NSValue *dbPointer = [openDBs objectForKey:dbfilename];
+
+    if (dbPath == NULL) {
+        NSLog(@"Detecting db path failed");
+        pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@"Detecting db path failed"];
+    } else {
+        NSValue *dbPointer = [openDBs objectForKey:dbName];
 
         if (dbPointer != NULL) {
-            NSLog(@"Reusing existing database connection for db name %@", dbfilename);
+            NSLog(@"Reusing existing database connection for db name %@", dbName);
             pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@"Database opened"];
         } else {
-            const char *name = [dbname UTF8String];
+            const char *dbPathCString = [dbPath UTF8String];
             sqlite3 *db;
 
-            NSLog(@"open full db path: %@", dbname);
+            NSLog(@"open full db path: %@", dbPath);
 
             /* Option to create from resource (pre-populated) if db does not exist: */
-            if (![[NSFileManager defaultManager] fileExistsAtPath:dbname]) {
-				NSLog(@"Unable to find database, creating new instance...");
-                NSString *createFromResource = [options objectForKey:@"createFromResource"];
-                if (createFromResource != NULL)
-                    [self createFromResource:dbfilename withDbname:dbname];
+            if (![[NSFileManager defaultManager] fileExistsAtPath:dbPath]) {
+                if ([options objectForKey:@"path"] != NULL) {
+                    NSLog(@"Unable to find database %@", dbPath);
+                    pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Unable to find database"];
+                } else {
+                    NSLog(@"Unable to find database, creating new instance...");
+                    NSString *createFromResource = [options objectForKey:@"createFromResource"];
+                    if (createFromResource != NULL) {
+                        [self createFromResource:dbName withDbname:dbPath];
+                    }
+                }
             }
 
-            if (sqlite3_open(name, &db) != SQLITE_OK) {
+            if (pluginResult != NULL) {
+                // Do nothing - We're already done
+            } else if (sqlite3_open(dbPathCString, &db) != SQLITE_OK) {
                 pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Unable to open DB"];
             } else {
                 sqlite3_create_function(db, "regexp", 2, SQLITE_ANY, NULL, &sqlite_regexp, NULL, NULL);
@@ -168,7 +180,7 @@ static void sqlite_regexp(sqlite3_context* context, int argc, sqlite3_value** va
                 // Attempt to read the SQLite master table [to support SQLCipher version]:
                 if(sqlite3_exec(db, (const char*)"SELECT count(*) FROM sqlite_master;", NULL, NULL, NULL) == SQLITE_OK) {
                     dbPointer = [NSValue valueWithPointer:db];
-                    [openDBs setObject: dbPointer forKey: dbfilename];
+                    [openDBs setObject: dbPointer forKey: dbName];
 
                     // initialize spatialite
                     void* cache = spatialite_alloc_connection ();
