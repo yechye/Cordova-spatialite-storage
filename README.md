@@ -8,8 +8,7 @@ Currently, only Android and iOS are supported to work with this plugin.
 # Installation
 Use the cordova command line tool in your project folder:
 ```
-cordova plugin add https://github.com/DisyInformationssysteme/Cordova-spatialite-storage
-
-// alternative, if the above does not work
-cordova plugin add https://github.com/DisyInformationssysteme/Cordova-spatialite-storage#master-rc
+cordova plugin add https://github.com/DisyInformationssysteme/Cordova-spatialite-storage#2.0.0
 ```
+
+See [releases page](https://github.com/DisyInformationssysteme/Cordova-spatialite-storage/releases) for available version tags.
