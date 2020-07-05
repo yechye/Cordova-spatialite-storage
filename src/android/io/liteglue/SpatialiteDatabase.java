@@ -77,12 +77,10 @@ class SpatialiteDatabase {
      *
      * @param queryarr   Array of query strings
      * @param jsonparams Array of JSON query parameters
-     * @param queryIDs   Array of query ids
      * @param cbc        Callback context from Cordova API
      */
     @SuppressLint("NewApi")
-    void executeSqlBatch(String[] queryarr, JSONArray[] jsonparams,
-                         String[] queryIDs, CallbackContext cbc) {
+    void executeSqlBatch(String[] queryarr, JSONArray[] jsonparams, CallbackContext cbc) {
 
         if (db == null) {
             // not allowed - can only happen if someone has closed (and possibly deleted) a database and then re-used the database
@@ -93,13 +91,11 @@ class SpatialiteDatabase {
         JSONArray batchResults = new JSONArray();
 
         for (int i = 0; i < queryarr.length; i++) {
-            String queryId = queryIDs[i];
             JSONObject queryResult = executeQuery(queryarr, jsonparams, i);
 
             try {
                 if (queryResult == null) {
                     JSONObject r = new JSONObject();
-                    r.put("qid", queryId);
                     r.put("type", "error");
 
                     JSONObject er = new JSONObject();
@@ -110,7 +106,6 @@ class SpatialiteDatabase {
                     batchResults.put(r);
                 } else {
                     JSONObject r = new JSONObject();
-                    r.put("qid", queryId);
 
                     r.put("type", "success");
                     r.put("result", queryResult);

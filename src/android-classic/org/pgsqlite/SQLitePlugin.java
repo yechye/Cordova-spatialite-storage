@@ -125,7 +125,6 @@ public class SQLitePlugin extends CordovaPlugin {
             case executeSqlBatch:
             case backgroundExecuteSqlBatch:
                 String[] queries = null;
-                String[] queryIDs = null;
 
                 JSONArray jsonArr = null;
                 int paramLen = 0;
@@ -141,13 +140,11 @@ public class SQLitePlugin extends CordovaPlugin {
                 } else {
                     int len = txargs.length();
                     queries = new String[len];
-                    queryIDs = new String[len];
                     jsonparams = new JSONArray[len];
 
                     for (int i = 0; i < len; i++) {
                         JSONObject a = txargs.getJSONObject(i);
                         queries[i] = a.getString("sql");
-                        queryIDs[i] = a.getString("qid");
                         jsonArr = a.getJSONArray("params");
                         paramLen = jsonArr.length();
                         jsonparams[i] = jsonArr;
@@ -155,7 +152,7 @@ public class SQLitePlugin extends CordovaPlugin {
                 }
 
                 // put db query in the queue to be executed in the db thread:
-                DBQuery q = new DBQuery(queries, queryIDs, jsonparams, cbc);
+                DBQuery q = new DBQuery(queries, jsonparams, cbc);
                 DBRunner r = dbrmap.get(dbname);
                 if (r != null) {
                     try {
@@ -405,12 +402,10 @@ public class SQLitePlugin extends CordovaPlugin {
      * @param dbname     The name of the database.
      * @param queryarr   Array of query strings
      * @param jsonparams Array of JSON query parameters
-     * @param queryIDs   Array of query ids
      * @param cbc        Callback context from Cordova API
      */
     @SuppressLint("NewApi")
-    private void executeSqlBatch(String dbname, String[] queryarr, JSONArray[] jsonparams,
-                                 String[] queryIDs, CallbackContext cbc) {
+    private void executeSqlBatch(String dbname, String[] queryarr, JSONArray[] jsonparams, CallbackContext cbc) {
 
         SQLiteDatabase mydb = getDatabase(dbname);
 
@@ -429,7 +424,6 @@ public class SQLitePlugin extends CordovaPlugin {
         for (int i = 0; i < len; i++) {
             int rowsAffectedCompat = 0;
             boolean needRowsAffectedCompat = false;
-            query_id = queryIDs[i];
 
             JSONObject queryResult = null;
             String errorMessage = "unknown";
@@ -567,7 +561,6 @@ public class SQLitePlugin extends CordovaPlugin {
             try {
                 if (queryResult != null) {
                     JSONObject r = new JSONObject();
-                    r.put("qid", query_id);
 
                     r.put("type", "success");
                     r.put("result", queryResult);
@@ -575,7 +568,6 @@ public class SQLitePlugin extends CordovaPlugin {
                     batchResults.put(r);
                 } else {
                     JSONObject r = new JSONObject();
-                    r.put("qid", query_id);
                     r.put("type", "error");
 
                     JSONObject er = new JSONObject();
@@ -853,7 +845,7 @@ public class SQLitePlugin extends CordovaPlugin {
                 dbq = q.take();
 
                 while (!dbq.stop) {
-                    executeSqlBatch(dbname, dbq.queries, dbq.jsonparams, dbq.queryIDs, dbq.cbc);
+                    executeSqlBatch(dbname, dbq.queries, dbq.jsonparams, dbq.cbc);
 
                     // XXX workaround for Android locking/closing issue:
                     if (androidLockWorkaround && dbq.queries.length == 1 && dbq.queries[0] == "COMMIT") {
@@ -906,16 +898,14 @@ public class SQLitePlugin extends CordovaPlugin {
         final boolean close;
         final boolean delete;
         final String[] queries;
-        final String[] queryIDs;
         final JSONArray[] jsonparams;
         final CallbackContext cbc;
 
-        DBQuery(String[] myqueries, String[] qids, JSONArray[] params, CallbackContext c) {
+        DBQuery(String[] myqueries, JSONArray[] params, CallbackContext c) {
             this.stop = false;
             this.close = false;
             this.delete = false;
             this.queries = myqueries;
-            this.queryIDs = qids;
             this.jsonparams = params;
             this.cbc = c;
         }
@@ -925,7 +915,6 @@ public class SQLitePlugin extends CordovaPlugin {
             this.close = true;
             this.delete = delete;
             this.queries = null;
-            this.queryIDs = null;
             this.jsonparams = null;
             this.cbc = cbc;
         }
@@ -936,7 +925,6 @@ public class SQLitePlugin extends CordovaPlugin {
             this.close = false;
             this.delete = false;
             this.queries = null;
-            this.queryIDs = null;
             this.jsonparams = null;
             this.cbc = null;
         }
